@@ -25,28 +25,40 @@ check_root() {
 
 check_dependencies() {
     msg "BLUE" "检测并安装必要依赖..."
-    local deps=("btrfs-progs" "curl" "jq" "snapd")
+    
+    # 定义依赖包和对应的命令
+    local -A deps_map=(
+        ["btrfs-progs"]="btrfs"    # btrfs-progs 包提供 btrfs 命令
+        ["curl"]="curl"            # curl 包提供 curl 命令
+        ["jq"]="jq"                # jq 包提供 jq 命令
+        ["snapd"]="snap"           # snapd 包提供 snap 命令
+    )
+    
     local to_install=()
     
-    for dep in "${deps[@]}"; do
-        # 使用 dpkg 检查包是否已安装，而不是检查命令是否存在
-        if ! dpkg -l | grep -q "^ii.*$dep"; then
-            to_install+=("$dep")
-            msg "YELLOW" "检测到未安装的依赖: $dep"
+    # 检查每个命令是否存在
+    for pkg in "${!deps_map[@]}"; do
+        local cmd="${deps_map[$pkg]}"
+        if ! command -v "$cmd" &>/dev/null; then
+            to_install+=("$pkg")
+            msg "YELLOW" "检测到未安装的包: $pkg (缺少命令: $cmd)"
         fi
     done
     
     if [ ${#to_install[@]} -gt 0 ]; then
-        msg "YELLOW" "缺少依赖: ${to_install[*]}，尝试自动安装..."
+        msg "YELLOW" "缺少依赖包: ${to_install[*]}，尝试自动安装..."
         
         # 先更新源
-        apt-get update
+        if ! apt-get update; then
+            msg "RED" "更新软件源失败，请检查网络连接。"
+            return 1
+        fi
         
         # 安装缺失的依赖
         if apt-get install -y "${to_install[@]}"; then
             msg "GREEN" "依赖安装成功。"
         else
-            msg "RED" "依赖安装失败，请检查网络连接和软件源配置。"
+            msg "RED" "依赖安装失败，请检查软件源配置。"
             return 1
         fi
     else
@@ -64,7 +76,7 @@ check_dependencies() {
         if systemctl is-active --quiet snapd; then
             msg "GREEN" "snapd 服务已成功启动。"
         else
-            msg "RED" "警告: 无法启动 snapd 服务。"
+            msg "YELLOW" "警告: 无法启动 snapd 服务，但可能不影响后续操作。"
         fi
     fi
     
