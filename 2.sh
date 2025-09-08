@@ -26,22 +26,16 @@ check_root() {
 check_dependencies() {
     msg "BLUE" "检测并安装必要依赖..."
     
-    # 定义依赖包和对应的命令
-    local -A deps_map=(
-        ["btrfs-progs"]="btrfs"    # btrfs-progs 包提供 btrfs 命令
-        ["curl"]="curl"            # curl 包提供 curl 命令
-        ["jq"]="jq"                # jq 包提供 jq 命令
-        ["snapd"]="snap"           # snapd 包提供 snap 命令
-    )
-    
+    # 定义需要检查的包列表
+    local packages=("btrfs-progs" "curl" "jq" "snapd")
     local to_install=()
     
-    # 检查每个命令是否存在
-    for pkg in "${!deps_map[@]}"; do
-        local cmd="${deps_map[$pkg]}"
-        if ! command -v "$cmd" &>/dev/null; then
+    # 检查每个包是否已安装
+    for pkg in "${packages[@]}"; do
+        # 使用 dpkg-query 检查包是否安装
+        if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
             to_install+=("$pkg")
-            msg "YELLOW" "检测到未安装的包: $pkg (缺少命令: $cmd)"
+            msg "YELLOW" "检测到未安装的包: $pkg"
         fi
     done
     
